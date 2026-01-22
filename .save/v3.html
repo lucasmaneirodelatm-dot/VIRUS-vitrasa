@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="es" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VITRASA: El Juego de Cartas - Multijugador Local</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&amp;family=Quicksand:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    
+    .font-marker { font-family: 'Permanent Marker', cursive; }
+    .font-quick { font-family: 'Quicksand', sans-serif; }
+    
+    .card {
+      width: 90px;
+      height: 130px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      border: 3px solid rgba(0,0,0,0.3);
+    }
+    
+    .card:hover {
+      transform: translateY(-10px) scale(1.05);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+    
+    .card-back {
+      background: linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #dc2626 100%);
+    }
+    
+    .card-selected {
+      box-shadow: 0 0 30px 8px #fbbf24;
+      transform: translateY(-15px) scale(1.08);
+    }
+    
+    @keyframes dealCard {
+      from { opacity: 0; transform: scale(0.5) rotate(-20deg); }
+      to { opacity: 1; transform: scale(1) rotate(0); }
+    }
+    
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.6); }
+      50% { box-shadow: 0 0 40px rgba(251, 191, 36, 1); }
+    }
+    
+    .deal-animation {
+      animation: dealCard 0.5s ease-out forwards;
+    }
+    
+    .active-player {
+      animation: pulseGlow 1.5s infinite;
+    }
+    
+    .slot {
+      width: 70px;
+      height: 100px;
+      border-radius: 10px;
+      border: 2px dashed rgba(255,255,255,0.2);
+      background: rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    
+    .slot-filled {
+      border: 2px solid rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.05);
+    }
+    
+    .protector-badge {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      z-index: 10;
+    }
+    
+    .virus-badge {
+      position: absolute;
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 2px;
+      z-index: 10;
+    }
+    
+    .virus-icon {
+      width: 20px;
+      height: 20px;
+      background: #dc2626;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+    
+    .toast {
+      animation: slideIn 0.4s ease-out, fadeOut 0.4s ease-in 2.6s forwards;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    @keyframes fadeOut {
+      to { opacity: 0; transform: translateY(-20px); }
+    }
+    
+    .modal-backdrop {
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(5px);
+    }
+
+    .line-card {
+      box-shadow: inset 0 -3px 10px rgba(0,0,0,0.2);
+    }
+
+    .pass-device-screen {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);
+    }
+
+    .player-color-0 { border-color: #ef4444; }
+    .player-color-1 { border-color: #3b82f6; }
+    .player-color-2 { border-color: #10b981; }
+    .player-color-3 { border-color: #f59e0b; }
+    .player-color-4 { border-color: #8b5cf6; }
+    .player-color-5 { border-color: #ec4899; }
+    .player-color-6 { border-color: #14b8a6; }
+    .player-color-7 { border-color: #f97316; }
+    .player-color-8 { border-color: #84cc16; }
+    .player-color-9 { border-color: #06b6d4; }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full font-quick">
+  <div id="app" class="h-full w-full overflow-auto" style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);"><!-- Pantalla de Inicio -->
+   <div id="startScreen" class="h-full flex flex-col items-center justify-center p-4">
+    <div class="text-center mb-8">
+     <div class="mb-4">
+      <svg class="w-28 h-28 mx-auto" viewbox="0 0 100 100"><defs>
+        <lineargradient id="busGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+         <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
+         <stop offset="100%" style="stop-color:#dc2626;stop-opacity:1" />
+        </lineargradient>
+       </defs> <rect x="12" y="20" width="76" height="50" rx="10" fill="url(#busGrad)" /> <rect x="18" y="28" width="24" height="18" rx="4" fill="#fef3c7" /> <rect x="48" y="28" width="24" height="18" rx="4" fill="#fef3c7" /> <rect x="12" y="55" width="76" height="12" fill="#991b1b" /> <circle cx="28" cy="75" r="10" fill="#1f2937" /> <circle cx="28" cy="75" r="5" fill="#4b5563" /> <circle cx="72" cy="75" r="10" fill="#1f2937" /> <circle cx="72" cy="75" r="5" fill="#4b5563" /> <rect x="78" y="35" width="10" height="25" rx="3" fill="#fbbf24" /> <path d="M 50 58 L 45 63 L 55 63 Z" fill="#fbbf24" />
+      </svg>
+     </div>
+     <h1 id="gameTitle" class="font-marker text-6xl text-red-500 mb-3 tracking-wide" style="text-shadow: 3px 3px 0px rgba(0,0,0,0.5);">VITRASA</h1>
+     <p class="text-yellow-300 text-2xl font-bold">El Juego de Cartas</p>
+     <p class="text-indigo-300 mt-3 text-base">¡Multijugador Local - Pasa el Dispositivo!</p>
+    </div>
+    <div class="bg-slate-900/70 rounded-2xl p-8 mb-6 max-w-md w-full border-4 border-red-600/50">
+     <h2 class="text-yellow-300 font-bold text-xl mb-4 text-center font-marker">👥 Jugadores</h2>
+     <div class="flex items-center justify-center gap-6"><button onclick="changePlayerCount(-1)" class="w-12 h-12 rounded-full bg-red-600 text-white font-bold text-2xl hover:bg-red-500 transition shadow-lg">-</button> <span id="playerCount" class="text-5xl font-bold text-white w-20 text-center font-marker">2</span> <button onclick="changePlayerCount(1)" class="w-12 h-12 rounded-full bg-red-600 text-white font-bold text-2xl hover:bg-red-500 transition shadow-lg">+</button>
+     </div>
+     <p class="text-indigo-300 text-sm text-center mt-3">2-10 jugadores humanos</p>
+    </div><button onclick="startGame()" class="bg-gradient-to-r from-red-600 to-red-700 text-white font-bold text-2xl px-16 py-5 rounded-2xl hover:from-red-500 hover:to-red-600 transition transform hover:scale-105 shadow-2xl border-4 border-red-900 font-marker"> 🚌 ¡JUGAR! </button> <button onclick="showRules()" class="mt-6 text-yellow-300 hover:text-yellow-200 underline text-lg font-semibold"> 📖 ¿Cómo se juega? </button>
+   </div><!-- Pantalla de "Pasa el Dispositivo" -->
+   <div id="passDeviceScreen" class="h-full hidden flex-col items-center justify-center p-8 pass-device-screen">
+    <div class="text-center max-w-lg">
+     <div class="text-9xl mb-6">
+      🔄
+     </div>
+     <h2 class="font-marker text-5xl mb-6" id="passDeviceTitle" style="text-shadow: 2px 2px 0px rgba(0,0,0,0.5);">Turno de Jugador 2</h2>
+     <p class="text-yellow-300 text-2xl mb-8 font-bold">¡Pasa el dispositivo!</p>
+     <p class="text-slate-300 text-lg mb-10">Dale el dispositivo al siguiente jugador.<br>
+       No mires las cartas de los demás 😉</p><button onclick="showPlayerTurn()" class="bg-gradient-to-r from-green-600 to-green-700 text-white font-bold text-2xl px-12 py-5 rounded-2xl hover:from-green-500 hover:to-green-600 transition transform hover:scale-105 shadow-2xl border-4 border-green-900 font-marker"> ✓ ¡LISTO, A JUGAR! </button>
+    </div>
+   </div><!-- Pantalla de Juego -->
+   <div id="gameScreen" class="h-full hidden flex flex-col p-3"><!-- Header con jugador actual e info -->
+    <div class="bg-slate-900/80 rounded-xl p-3 mb-3 border-3" id="currentPlayerHeader">
+     <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+       <div class="w-10 h-10 rounded-full flex items-center justify-center text-2xl font-bold text-white" id="playerAvatar">
+        👤
+       </div>
+       <div>
+        <div class="text-yellow-300 font-bold text-xl font-marker" id="currentPlayerName">
+         Jugador 1
+        </div>
+        <div class="text-slate-400 text-sm" id="currentPlayerScore">
+         0/4 completas
+        </div>
+       </div>
+      </div><button onclick="endTurnManually()" class="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-xl font-bold text-lg shadow-lg font-marker transition"> TERMINAR TURNO → </button>
+     </div>
+    </div><!-- Scoreboard compacto -->
+    <div class="bg-slate-900/60 rounded-xl p-3 mb-3">
+     <div class="flex items-center justify-between mb-2"><span class="text-yellow-300 font-bold text-base font-marker">📊 MARCADOR</span>
+     </div>
+     <div id="scoreboardArea" class="flex gap-2 flex-wrap justify-center"><!-- Se genera dinámicamente -->
+     </div>
+    </div><!-- Área central: Mazo y Descarte -->
+    <div class="flex justify-center items-center gap-8 my-3">
+     <div class="text-center">
+      <div onclick="drawCard()" class="card card-back flex items-center justify-center shadow-2xl cursor-pointer relative">
+       <div class="text-center">
+        <svg class="w-12 h-12 mx-auto mb-1" viewbox="0 0 50 50"><rect x="8" y="12" width="34" height="22" rx="5" fill="white" opacity="0.9" /> <circle cx="18" cy="33" r="4" fill="#374151" /> <circle cx="32" cy="33" r="4" fill="#374151" />
+        </svg>
+        <div class="bg-white/90 px-3 py-1 rounded-full"><span class="text-red-700 text-sm font-bold" id="deckCount">60</span>
+        </div>
+       </div>
+      </div>
+      <p class="text-indigo-200 text-sm mt-2 font-semibold">ROBAR</p>
+     </div>
+     <div class="text-center">
+      <div id="discardPile" class="card bg-slate-800/50 border-4 border-dashed border-slate-600 flex items-center justify-center shadow-xl"><span class="text-slate-500 text-sm font-bold">DESCARTES</span>
+      </div>
+      <p class="text-indigo-200 text-sm mt-2 font-semibold">DESCARTE</p>
+     </div>
+    </div><!-- Tablero del jugador actual -->
+    <div class="bg-slate-900/60 rounded-2xl p-3 mb-3 border-3 border-indigo-600/50 shadow-xl">
+     <div class="flex items-center justify-between mb-3"><span class="text-yellow-300 font-bold text-base font-marker">🚌 TUS LÍNEAS</span> <span id="boardStatus" class="text-green-400 text-sm font-bold">0/4 completas</span>
+     </div>
+     <div id="playerBoard" class="flex justify-center gap-2 flex-wrap"><!-- Se genera dinámicamente -->
+     </div>
+    </div><!-- Mano del jugador -->
+    <div class="bg-slate-950/80 rounded-2xl p-3 mt-auto border-3 border-slate-700 shadow-xl">
+     <div class="flex items-center justify-between mb-2"><span class="text-yellow-300 font-bold text-base font-marker">🎴 TU MANO</span> <span id="handCount" class="text-indigo-300 text-sm font-semibold">0 cartas</span>
+     </div>
+     <div id="playerHand" class="flex justify-center gap-2 flex-wrap min-h-[140px]"><!-- Se genera dinámicamente -->
+     </div>
+    </div><!-- Botones de acción -->
+    <div id="actionButtons" class="flex justify-center gap-3 mt-3 hidden"><button onclick="playSelectedCard()" class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-500 transition text-base shadow-lg font-marker"> ✓ JUGAR </button> <button onclick="discardSelectedCard()" class="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-500 transition text-base shadow-lg font-marker"> ✗ DESCARTAR </button> <button onclick="cancelSelection()" class="bg-slate-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-600 transition text-base shadow-lg"> ↩ Volver </button>
+    </div>
+   </div><!-- Modal de Reglas -->
+   <div id="rulesModal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 rounded-3xl max-w-2xl w-full max-h-[85%] overflow-y-auto p-8 border-4 border-red-600 shadow-2xl">
+     <h2 class="font-marker text-4xl text-red-500 mb-6 text-center">📖 REGLAS</h2>
+     <div class="space-y-5 text-slate-200 text-base">
+      <div class="bg-slate-800/70 p-4 rounded-xl border-2 border-green-600/50">
+       <h3 class="text-green-400 font-bold text-xl mb-2 font-marker">🎯 OBJETIVO</h3>
+       <p>Ser el primero en completar <strong>4 líneas de autobús</strong>. Cada línea necesita <strong>3 protectores del mismo color</strong> para estar completa (sin virus).</p>
+      </div>
+      <div class="bg-slate-800/70 p-4 rounded-xl border-2 border-blue-600/50">
+       <h3 class="text-blue-400 font-bold text-xl mb-2 font-marker">🎴 TIPOS DE CARTAS</h3>
+       <ul class="space-y-2 ml-2">
+        <li><span class="text-green-400 font-bold">🚌 LÍNEAS:</span> C1, C2, C3, C4, C5, C6, C7, C8, C9A, C9B, C11, C12. Coloca protectores del mismo color.</li>
+        <li><span class="text-red-400 font-bold">🦠 VIRUS:</span> Retrasos, Playas, Navidad, Obras. Infecta líneas rivales (máx. 2 virus por línea).</li>
+        <li><span class="text-yellow-400 font-bold">💊 MEDICINAS:</span> Elimina un virus de una línea del color correspondiente.</li>
+        <li><span class="text-purple-400 font-bold">⭐ ESPECIALES:</span> Cartas con efectos únicos y poderosos.</li>
+       </ul>
+      </div>
+      <div class="bg-slate-800/70 p-4 rounded-xl border-2 border-yellow-600/50">
+       <h3 class="text-yellow-400 font-bold text-xl mb-2 font-marker">🎮 CÓMO JUGAR (MULTIJUGADOR)</h3>
+       <ol class="space-y-2 ml-4 list-decimal">
+        <li><strong>Pasa el dispositivo:</strong> Cada jugador recibe el dispositivo en su turno.</li>
+        <li><strong>Robar:</strong> Al inicio de tu turno, roba 1 carta del mazo.</li>
+        <li><strong>Jugar:</strong> Juega 1 carta de tu mano o descártala.</li>
+        <li><strong>Terminar:</strong> Presiona "TERMINAR TURNO" y pasa el dispositivo al siguiente.</li>
+        <li><strong>¡No hagas trampa!:</strong> No mires las cartas de los demás jugadores.</li>
+       </ol>
+      </div>
+      <div class="bg-red-900/30 p-3 rounded-xl border-2 border-red-600/50">
+       <p class="text-sm text-center text-red-300"><strong>⚠️ IMPORTANTE:</strong> Una línea con 2 virus está BLOQUEADA y no puedes añadirle más protectores hasta curarla.</p>
+      </div>
+     </div><button onclick="hideRules()" class="mt-6 w-full bg-red-600 text-white py-4 rounded-xl font-bold text-xl hover:bg-red-500 transition shadow-lg font-marker"> ¡A JUGAR! </button>
+    </div>
+   </div><!-- Modal de Victoria -->
+   <div id="victoryModal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gradient-to-b from-yellow-400 to-amber-600 rounded-3xl max-w-lg w-full p-10 text-center shadow-2xl border-4 border-yellow-600">
+     <div class="text-8xl mb-6">
+      🏆
+     </div>
+     <h2 class="font-marker text-5xl text-slate-900 mb-4" style="text-shadow: 2px 2px 0px rgba(255,255,255,0.5);">¡VICTORIA!</h2>
+     <p id="winnerText" class="text-slate-800 text-2xl mb-8 font-bold">Jugador 1 gana la partida</p><button onclick="restartGame()" class="bg-slate-900 text-yellow-400 px-10 py-4 rounded-2xl font-bold text-xl hover:bg-slate-800 transition shadow-lg font-marker"> 🔄 NUEVA PARTIDA </button>
+    </div>
+   </div><!-- Modal de selección de objetivo -->
+   <div id="targetModal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 rounded-3xl max-w-lg w-full p-6 border-4 border-indigo-600 shadow-2xl">
+     <h2 class="font-marker text-2xl text-yellow-300 mb-5 text-center" id="targetModalTitle">Selecciona objetivo</h2>
+     <div id="targetOptions" class="space-y-2 max-h-96 overflow-y-auto"><!-- Se genera dinámicamente -->
+     </div><button onclick="hideTargetModal()" class="mt-5 w-full bg-slate-700 text-white py-3 rounded-xl font-bold hover:bg-slate-600 transition text-lg"> ← Cancelar </button>
+    </div>
+   </div><!-- Toast de notificaciones -->
+   <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+  </div>
+  <script>
+    // Configuración del SDK
+    const defaultConfig = {
+      game_title: "VITRASA"
+    };
+
+    let config = { ...defaultConfig };
+
+    // Estado del juego
+    let gameState = {
+      playerCount: 2,
+      currentPlayer: 0,
+      players: [],
+      deck: [],
+      discardPile: [],
+      selectedCard: null,
+      skipNextPlayer: false,
+      hasDrawn: false
+    };
+
+    const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#84cc16', '#06b6d4'];
+    const PLAYER_EMOJIS = ['🔴', '🔵', '🟢', '🟡', '🟣', '🌸', '🩵', '🟠', '🍏', '💙'];
+
+    // Definición de cartas - MÁS LÍNEAS REALES DE VITRASA
+    const LINEAS = [
+      { id: 'C1', name: 'Línea C1', color: '#10b981', route: 'Centro - Coia' },
+      { id: 'C2', name: 'Línea C2', color: '#3b82f6', route: 'Centro - Navia' },
+      { id: 'C3', name: 'Línea C3', color: '#f59e0b', route: 'Centro - Teis' },
+      { id: 'C4', name: 'Línea C4', color: '#ec4899', route: 'Centro - Bouzas' },
+      { id: 'C5', name: 'Línea C5', color: '#8b5cf6', route: 'Centro - Samil' },
+      { id: 'C6', name: 'Línea C6', color: '#14b8a6', route: 'Centro - Lavadores' },
+      { id: 'C7', name: 'Línea C7', color: '#f97316', route: 'Centro - Cabral' },
+      { id: 'C8', name: 'Línea C8', color: '#06b6d4', route: 'Centro - Beade' },
+      { id: 'C9A', name: 'Línea C9A', color: '#84cc16', route: 'Centro - Alcabre' },
+      { id: 'C9B', name: 'Línea C9B', color: '#eab308', route: 'Centro - Coruxo' },
+      { id: 'C11', name: 'Línea C11', color: '#a855f7', route: 'Centro - Hospital' },
+      { id: 'C12', name: 'Línea C12', color: '#ef4444', route: 'Centro - Universidade' }
+    ];
+
+    const VIRUS = [
+      { id: 'retraso', name: 'Retraso', emoji: '⏰', desc: '¡Bus llega tarde!' },
+      { id: 'playa', name: 'Playas', emoji: '🏖️', desc: 'Atasco playero' },
+      { id: 'navidad', name: 'Navidad', emoji: '🎄', desc: 'Luces y colapso' },
+      { id: 'obras', name: 'Obras', emoji: '🚧', desc: 'Desvíos y caos' }
+    ];
+
+    const MEDICINA = [
+      { id: 'mecanico', name: 'Mecánico', emoji: '🔧', desc: 'Repara el bus' }
+    ];
+
+    const ESPECIALES = [
+      { id: 'transbordo', name: 'Transbordo', emoji: '🔄', desc: 'Roba 3 cartas', effect: 'draw3' },
+      { id: 'cocheras', name: 'Cocheras', emoji: '🏥', desc: 'Cura todos virus', effect: 'healAll' },
+      { id: 'pass', name: 'Tarjeta Pass', emoji: '🛡️', desc: 'Inmuniza línea', effect: 'protect' },
+      { id: 'huelga', name: 'Huelga', emoji: '💀', desc: 'Destruye línea', effect: 'destroy' },
+      { id: 'cambio', name: 'Cambio Ruta', emoji: '🔀', desc: 'Intercambia', effect: 'swap' },
+      { id: 'sinservicio', name: 'Sin Servicio', emoji: '🚫', desc: 'Salta turno', effect: 'skip' },
+      { id: 'guante', name: 'Guante', emoji: '🎭', desc: 'Roba 3 a rival', effect: 'steal' },
+      { id: 'reciclaje', name: 'Reciclaje', emoji: '♻️', desc: 'Recupera cartas', effect: 'recycle' }
+    ];
+
+    // Funciones de UI
+    function changePlayerCount(delta) {
+      gameState.playerCount = Math.max(2, Math.min(10, gameState.playerCount + delta));
+      document.getElementById('playerCount').textContent = gameState.playerCount;
+    }
+
+    function showRules() {
+      document.getElementById('rulesModal').classList.remove('hidden');
+    }
+
+    function hideRules() {
+      document.getElementById('rulesModal').classList.add('hidden');
+    }
+
+    function hideTargetModal() {
+      document.getElementById('targetModal').classList.add('hidden');
+      gameState.selectedCard = null;
+      updateActionButtons();
+      renderPlayerHand();
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      const colors = {
+        info: 'bg-blue-600',
+        success: 'bg-green-600',
+        error: 'bg-red-600',
+        warning: 'bg-yellow-600'
+      };
+      toast.className = `toast ${colors[type]} text-white px-5 py-3 rounded-xl shadow-2xl font-semibold`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Funciones del juego
+    function createDeck() {
+      const deck = [];
+      
+      // Añadir protectores de líneas (5 de cada color)
+      LINEAS.forEach(linea => {
+        for (let i = 0; i < 5; i++) {
+          deck.push({ type: 'linea', ...linea, uid: `${linea.id}_${i}` });
+        }
+      });
+      
+      // Añadir virus (4 de cada tipo)
+      VIRUS.forEach(virus => {
+        for (let i = 0; i < 4; i++) {
+          deck.push({ type: 'virus', ...virus, uid: `${virus.id}_${i}` });
+        }
+      });
+      
+      // Añadir medicinas (1 de cada color)
+      LINEAS.forEach((linea, idx) => {
+        deck.push({ 
+          type: 'medicina', 
+          ...MEDICINA[0], 
+          targetColor: linea.id,
+          color: linea.color,
+          uid: `med_${linea.id}` 
+        });
+      });
+      
+      // Añadir especiales (2 de cada)
+      ESPECIALES.forEach(especial => {
+        for (let i = 0; i < 2; i++) {
+          deck.push({ type: 'especial', ...especial, uid: `${especial.id}_${i}` });
+        }
+      });
+      
+      return shuffleArray(deck);
+    }
+
+    function shuffleArray(array) {
+      const newArray = [...array];
+      for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+      }
+      return newArray;
+    }
+
+    function startGame() {
+      // Inicializar jugadores SIN LÍNEAS (como el juego real)
+      gameState.players = [];
+      for (let i = 0; i < gameState.playerCount; i++) {
+        const board = {};
+        LINEAS.forEach(linea => {
+          board[linea.id] = { protectores: 0, virus: [], inmune: false };
+        });
+        
+        gameState.players.push({
+          id: i,
+          name: `Jugador ${i + 1}`,
+          color: PLAYER_COLORS[i],
+          emoji: PLAYER_EMOJIS[i],
+          hand: [],
+          board: board
+        });
+      }
+      
+      // Crear mazo
+      gameState.deck = createDeck();
+      gameState.discardPile = [];
+      gameState.currentPlayer = 0;
+      gameState.selectedCard = null;
+      gameState.skipNextPlayer = false;
+      gameState.hasDrawn = false;
+      
+      // Repartir cartas iniciales (3 a cada jugador)
+      gameState.players.forEach(player => {
+        for (let i = 0; i < 3; i++) {
+          if (gameState.deck.length > 0) {
+            player.hand.push(gameState.deck.pop());
+          }
+        }
+      });
+      
+      // Mostrar pantalla de pasa dispositivo
+      document.getElementById('startScreen').classList.add('hidden');
+      showPassDevice();
+    }
+
+    function showPassDevice() {
+      const player = gameState.players[gameState.currentPlayer];
+      document.getElementById('passDeviceTitle').textContent = `Turno de ${player.name}`;
+      document.getElementById('passDeviceTitle').style.color = player.color;
+      document.getElementById('passDeviceScreen').classList.remove('hidden');
+      document.getElementById('gameScreen').classList.add('hidden');
+    }
+
+    function showPlayerTurn() {
+      document.getElementById('passDeviceScreen').classList.add('hidden');
+      document.getElementById('gameScreen').classList.remove('hidden');
+      renderGame();
+      
+      if (!gameState.hasDrawn) {
+        showToast('Roba una carta para empezar tu turno', 'info');
+      }
+    }
+
+    function renderGame() {
+      renderScoreboard();
+      renderCurrentPlayerHeader();
+      renderPlayerBoard();
+      renderPlayerHand();
+      updateDeckCount();
+      updateBoardStatus();
+    }
+
+    function renderScoreboard() {
+      const container = document.getElementById('scoreboardArea');
+      container.innerHTML = '';
+      
+      gameState.players.forEach((player, idx) => {
+        const isCurrentTurn = idx === gameState.currentPlayer;
+        const completedLines = Object.values(player.board).filter(slot => slot.protectores >= 3 && slot.virus.length === 0).length;
+        
+        const div = document.createElement('div');
+        div.className = `bg-slate-800/70 rounded-lg p-2 border-2 ${isCurrentTurn ? 'border-yellow-400 active-player' : 'border-slate-600'} shadow-lg player-color-${idx}`;
+        div.innerHTML = `
+          <div class="text-center">
+            <div class="text-2xl mb-1">${player.emoji}</div>
+            <div class="text-white font-bold text-xs">${player.name}</div>
+            <div class="text-yellow-300 text-sm font-bold">${completedLines}/4</div>
+            <div class="text-slate-400 text-xs">${player.hand.length} 🎴</div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function renderCurrentPlayerHeader() {
+      const player = gameState.players[gameState.currentPlayer];
+      const completedLines = Object.values(player.board).filter(slot => slot.protectores >= 3 && slot.virus.length === 0).length;
+      
+      const header = document.getElementById('currentPlayerHeader');
+      header.style.borderColor = player.color;
+      
+      document.getElementById('playerAvatar').textContent = player.emoji;
+      document.getElementById('currentPlayerName').textContent = player.name;
+      document.getElementById('currentPlayerName').style.color = player.color;
+      document.getElementById('currentPlayerScore').textContent = `${completedLines}/4 completas`;
+    }
+
+    function renderPlayerBoard() {
+      const container = document.getElementById('playerBoard');
+      const player = gameState.players[gameState.currentPlayer];
+      container.innerHTML = '';
+      
+      LINEAS.forEach(linea => {
+        const slot = player.board[linea.id];
+        const isComplete = slot.protectores >= 3 && slot.virus.length === 0;
+        const isBlocked = slot.virus.length >= 2;
+        
+        const div = document.createElement('div');
+        div.className = 'text-center relative';
+        
+        const slotDiv = document.createElement('div');
+        slotDiv.className = `slot ${slot.protectores > 0 ? 'slot-filled line-card' : ''} cursor-pointer transition hover:scale-105`;
+        slotDiv.style.background = slot.protectores > 0 
+          ? `linear-gradient(135deg, ${linea.color}dd 0%, ${linea.color}99 100%)` 
+          : 'rgba(0,0,0,0.2)';
+        slotDiv.onclick = () => selectBoardSlot(linea.id);
+        
+        slotDiv.innerHTML = `
+          <div class="text-center px-1">
+            <span class="text-white font-bold text-xs block mb-1">${linea.id}</span>
+            ${slot.protectores > 0 ? `
+              <div class="text-white font-bold text-2xl my-1">${slot.protectores}/3</div>
+              ${isComplete ? '<span class="text-green-300 text-xl">✓</span>' : ''}
+              ${isBlocked ? '<div class="text-xs text-red-300 font-bold">BLOQ</div>' : ''}
+            ` : `
+              <div class="text-slate-500 text-xs mt-2">Vacía</div>
+            `}
+          </div>
+        `;
+        
+        if (slot.inmune) {
+          const badge = document.createElement('div');
+          badge.className = 'protector-badge';
+          badge.textContent = '🛡️';
+          slotDiv.appendChild(badge);
+        }
+        
+        if (slot.virus.length > 0) {
+          const virusDiv = document.createElement('div');
+          virusDiv.className = 'virus-badge';
+          slot.virus.forEach(v => {
+            const vIcon = document.createElement('div');
+            vIcon.className = 'virus-icon';
+            vIcon.textContent = v.emoji;
+            virusDiv.appendChild(vIcon);
+          });
+          slotDiv.appendChild(virusDiv);
+        }
+        
+        div.appendChild(slotDiv);
+        container.appendChild(div);
+      });
+    }
+
+    function renderPlayerHand() {
+      const container = document.getElementById('playerHand');
+      const player = gameState.players[gameState.currentPlayer];
+      container.innerHTML = '';
+      
+      player.hand.forEach((card, idx) => {
+        const div = document.createElement('div');
+        div.className = `card ${getCardClass(card)} ${gameState.selectedCard === idx ? 'card-selected' : ''} 
+                        flex flex-col items-center justify-center p-2 deal-animation`;
+        div.style.animationDelay = `${idx * 0.08}s`;
+        div.onclick = () => selectCard(idx);
+        div.innerHTML = getCardContent(card);
+        container.appendChild(div);
+      });
+      
+      document.getElementById('handCount').textContent = `${player.hand.length} cartas`;
+    }
+
+    function getCardClass(card) {
+      switch(card.type) {
+        case 'linea': return 'line-card';
+        case 'virus': return 'bg-gradient-to-b from-red-500 to-red-700';
+        case 'medicina': return 'bg-gradient-to-b from-orange-500 to-amber-600';
+        case 'especial': return 'bg-gradient-to-b from-purple-600 to-indigo-700';
+        default: return 'bg-slate-600';
+      }
+    }
+
+    function getCardContent(card) {
+      switch(card.type) {
+        case 'linea':
+          return `
+            <div class="w-10 h-10 rounded-lg mb-1 flex items-center justify-center shadow-lg" style="background: ${card.color};">
+              <span class="text-white font-bold text-sm">${card.id}</span>
+            </div>
+            <span class="text-white font-bold text-xs">${card.id}</span>
+          `;
+        case 'virus':
+          return `
+            <span class="text-3xl mb-1">${card.emoji}</span>
+            <span class="text-white font-bold text-xs">${card.name}</span>
+          `;
+        case 'medicina':
+          return `
+            <span class="text-2xl mb-1">${card.emoji}</span>
+            <span class="text-white font-bold text-xs text-center">${card.name}</span>
+            <div class="w-5 h-5 rounded mt-1 shadow" style="background: ${card.color}"></div>
+          `;
+        case 'especial':
+          return `
+            <span class="text-2xl mb-1">${card.emoji}</span>
+            <span class="text-white font-bold text-xs text-center px-1">${card.name}</span>
+          `;
+        default:
+          return '';
+      }
+    }
+
+    function updateDeckCount() {
+      document.getElementById('deckCount').textContent = gameState.deck.length;
+    }
+
+    function updateBoardStatus() {
+      const player = gameState.players[gameState.currentPlayer];
+      const completedLines = Object.values(player.board).filter(
+        slot => slot.protectores >= 3 && slot.virus.length === 0
+      ).length;
+      document.getElementById('boardStatus').textContent = `${completedLines}/4 completas`;
+    }
+
+    function updateActionButtons() {
+      const buttons = document.getElementById('actionButtons');
+      buttons.classList.toggle('hidden', gameState.selectedCard === null);
+    }
+
+    // Acciones del jugador
+    function drawCard() {
+      if (gameState.hasDrawn) {
+        showToast('Ya has robado en este turno', 'warning');
+        return;
+      }
+      
+      if (gameState.deck.length === 0) {
+        if (gameState.discardPile.length > 0) {
+          gameState.deck = shuffleArray(gameState.discardPile);
+          gameState.discardPile = [];
+          showToast('¡Mazo mezclado desde descarte!', 'info');
+        } else {
+          showToast('No hay más cartas', 'error');
+          return;
+        }
+      }
+      
+      const card = gameState.deck.pop();
+      gameState.players[gameState.currentPlayer].hand.push(card);
+      gameState.hasDrawn = true;
+      renderGame();
+      showToast(`Robaste: ${card.name}`, 'info');
+    }
+
+    function selectCard(idx) {
+      if (!gameState.hasDrawn) {
+        showToast('Primero debes robar una carta', 'warning');
+        return;
+      }
+      
+      gameState.selectedCard = gameState.selectedCard === idx ? null : idx;
+      renderPlayerHand();
+      updateActionButtons();
+    }
+
+    function selectBoardSlot(lineaId) {
+      if (gameState.selectedCard === null) return;
+      
+      const player = gameState.players[gameState.currentPlayer];
+      const card = player.hand[gameState.selectedCard];
+      
+      if (card.type === 'linea' && card.id === lineaId) {
+        playLineaCard(card, lineaId);
+      }
+    }
+
+    function playSelectedCard() {
+      if (gameState.selectedCard === null) return;
+      
+      const player = gameState.players[gameState.currentPlayer];
+      const card = player.hand[gameState.selectedCard];
+      
+      switch(card.type) {
+        case 'linea':
+          playLineaToSlot(card);
+          break;
+        case 'virus':
+          showVirusTargets(card);
+          break;
+        case 'medicina':
+          playMedicina(card);
+          break;
+        case 'especial':
+          playEspecial(card);
+          break;
+      }
+    }
+
+    function playLineaToSlot(card) {
+      const modal = document.getElementById('targetModal');
+      const options = document.getElementById('targetOptions');
+      const player = gameState.players[gameState.currentPlayer];
+      document.getElementById('targetModalTitle').textContent = `🚌 Colocar ${card.name}`;
+      options.innerHTML = '';
+      
+      const slot = player.board[card.id];
+      
+      if (slot.virus.length >= 2) {
+        showToast('Línea bloqueada por virus. Cúrala primero.', 'error');
+        return;
+      }
+      
+      if (slot.protectores >= 3) {
+        showToast('Esta línea ya está completa', 'warning');
+        return;
+      }
+      
+      const btn = document.createElement('button');
+      btn.className = 'w-full text-white p-4 rounded-xl text-left transition shadow-lg font-semibold';
+      btn.style.background = `linear-gradient(135deg, ${card.color}dd, ${card.color}99)`;
+      btn.innerHTML = `
+        <div class="flex justify-between items-center">
+          <span>Tu Línea ${card.id}</span>
+          <span class="text-2xl">${slot.protectores}/3 → ${slot.protectores + 1}/3</span>
+        </div>
+        <div class="text-sm opacity-80 mt-1">${card.route}</div>
+      `;
+      btn.onclick = () => {
+        slot.protectores++;
+        player.hand.splice(gameState.selectedCard, 1);
+        gameState.selectedCard = null;
+        modal.classList.add('hidden');
+        showToast(`¡Protector añadido a ${card.id}! (${slot.protectores}/3)`, 'success');
+        checkVictory();
+        renderGame();
+        updateActionButtons();
+      };
+      options.appendChild(btn);
+      
+      modal.classList.remove('hidden');
+    }
+
+    function playLineaCard(card, lineaId) {
+      const player = gameState.players[gameState.currentPlayer];
+      const slot = player.board[lineaId];
+      
+      if (slot.virus.length >= 2) {
+        showToast('Línea bloqueada. Cura los virus primero.', 'error');
+        return;
+      }
+      
+      if (slot.protectores >= 3) {
+        showToast('Esta línea ya está completa', 'warning');
+        return;
+      }
+      
+      slot.protectores++;
+      player.hand.splice(gameState.selectedCard, 1);
+      gameState.selectedCard = null;
+      
+      showToast(`¡Protector añadido a ${card.id}! (${slot.protectores}/3)`, 'success');
+      checkVictory();
+      renderGame();
+      updateActionButtons();
+    }
+
+    function showVirusTargets(card) {
+      const modal = document.getElementById('targetModal');
+      const options = document.getElementById('targetOptions');
+      document.getElementById('targetModalTitle').textContent = `🦠 Atacar con ${card.name}`;
+      options.innerHTML = '';
+      
+      gameState.players.forEach((player, playerIdx) => {
+        if (playerIdx === gameState.currentPlayer) return;
+        
+        Object.entries(player.board).forEach(([lineaId, slot]) => {
+          if (slot.protectores > 0 && !slot.inmune && slot.virus.length < 2) {
+            const linea = LINEAS.find(l => l.id === lineaId);
+            const btn = document.createElement('button');
+            btn.className = 'w-full bg-red-700 hover:bg-red-600 text-white p-3 rounded-xl text-left transition shadow-lg font-semibold';
+            btn.innerHTML = `
+              <div class="flex justify-between">
+                <span>${player.emoji} ${player.name} - ${lineaId}</span>
+                <span>${slot.protectores}/3 🦠${slot.virus.length}</span>
+              </div>
+            `;
+            btn.onclick = () => {
+              slot.virus.push(card);
+              gameState.players[gameState.currentPlayer].hand.splice(gameState.selectedCard, 1);
+              gameState.selectedCard = null;
+              modal.classList.add('hidden');
+              showToast(`${card.emoji} enviado a ${player.name}!`, 'success');
+              renderGame();
+              updateActionButtons();
+            };
+            options.appendChild(btn);
+          }
+        });
+      });
+      
+      if (options.children.length === 0) {
+        options.innerHTML = '<p class="text-slate-400 text-center py-4">No hay objetivos válidos</p>';
+      }
+      
+      modal.classList.remove('hidden');
+    }
+
+    function playMedicina(card) {
+      const player = gameState.players[gameState.currentPlayer];
+      const slot = player.board[card.targetColor];
+      
+      if (slot.protectores === 0) {
+        showToast('No tienes esa línea iniciada', 'warning');
+        return;
+      }
+      
+      if (slot.virus.length === 0) {
+        showToast('Esa línea no tiene virus', 'warning');
+        return;
+      }
+      
+      slot.virus.pop();
+      player.hand.splice(gameState.selectedCard, 1);
+      gameState.selectedCard = null;
+      
+      showToast(`¡Línea ${card.targetColor} curada!`, 'success');
+      checkVictory();
+      renderGame();
+      updateActionButtons();
+    }
+
+    function playEspecial(card) {
+      const player = gameState.players[gameState.currentPlayer];
+      
+      switch(card.effect) {
+        case 'draw3':
+          for (let i = 0; i < 3; i++) {
+            if (gameState.deck.length > 0) {
+              player.hand.push(gameState.deck.pop());
+            }
+          }
+          player.hand.splice(gameState.selectedCard, 1);
+          gameState.selectedCard = null;
+          showToast('🔄 ¡Transbordo! +3 cartas', 'success');
+          renderGame();
+          updateActionButtons();
+          break;
+          
+        case 'healAll':
+          showCocherasTargets();
+          break;
+          
+        case 'protect':
+          showPassTargets();
+          break;
+          
+        case 'destroy':
+          showHuelgaTargets();
+          break;
+          
+        case 'swap':
+          showCambioTargets();
+          break;
+          
+        case 'skip':
+          gameState.skipNextPlayer = true;
+          player.hand.splice(gameState.selectedCard, 1);
+          gameState.selectedCard = null;
+          showToast('🚫 Siguiente jugador pierde turno', 'success');
+          renderGame();
+          updateActionButtons();
+          break;
+
+        case 'steal':
+          showStealTargets();
+          break;
+
+        case 'recycle':
+          showRecycleOptions();
+          break;
+      }
+    }
+
+    function showCocherasTargets() {
+      const modal = document.getElementById('targetModal');
+      const options = document.getElementById('targetOptions');
+      const player = gameState.players[gameState.currentPlayer];
+      document.getElementById('targetModalTitle').textContent = '🏥 Cocheras: Curar línea';
+      options.innerHTML = '';
+      
+      Object.entries(player.board).forEach(([lineaId, slot]) => {
+        if (slot.protectores > 0 && slot.virus.length > 0) {
+          const linea = LINEAS.find(l => l.id === lineaId);
+          const btn = document.createElement('button');
+          btn.className = 'w-full bg-green-700 hover:bg-green-600 text-white p-3 rounded-xl text-left transition shadow-lg';
+          btn.innerHTML = `Línea ${lineaId} (${slot.virus.length} virus) → Curar TODO`;
+          btn.onclick = () => {
+            slot.virus = [];
+            gameState.players[gameState.currentPlayer].hand.splice(gameState.selectedCard, 1);
+            gameState.selectedCard = null;
+            modal.classList.add('hidden');
+            showToast(`🏥 Línea ${lineaId} totalmente curada!`, 'success');
+            checkVictory();
+            renderGame();
+            updateActionButtons();
+          };
+          options.appendChild(btn);
+        }
+      });
+      
+      if (options.children.length === 0) {
+        options.innerHTML = '<p class="text-slate-400 text-center py-4">No hay líneas con virus</p>';
+      }
+      
+      modal.classList.remove('hidden');
+    }
+
+    function showPassTargets() {
+      const modal = document.getElementById('targetModal');
+      const options = document.getElementById('targetOptions');
+      const player = gameState.players[gameState.currentPlayer];
+      document.getElementById('targetModalTitle').textContent = '🛡️ Tarjeta Pass: Proteger';
+      options.innerHTML = '';
+      
+      Object.entries(player.board).forEach(([lineaId, slot]) => {
+        if (slot.protectores > 0 && !slot.inmune) {
+          const btn = document.createElement('button');
+          btn.className = 'w-full bg-yellow-700 hover:bg-yellow-600 text-white p-3 rounded-xl text-left transition shadow-lg';
+          btn.innerHTML = `Inmunizar Línea ${lineaId}`;
+          btn.onclick = () => {
+            slot.inmune = true;
+            gameState.players[gameState.currentPlayer].hand.splice(gameState.selectedCard, 1);
+            gameState.selectedCard = null;
+            modal.classList.add('hidden');
+            showToast(`🛡️ Línea ${lineaId} inmunizada!`, 'success');
+            renderGame();
+            updateActionButtons();
+          };
+          options.appendChild(btn);
+        }
+      });
+      
+      if (options.children.length === 0) {
+        options.innerHTML = '<p class="text-slate-400 text-center py-4">No hay líneas para proteger</p>';
+      }
+      
+      modal.classList.remove('hidden');
+    }
+
+    function showHuelgaTargets() {
+      const modal = document.getElementById('targetModal');
+      const options = document.getElementById('targetOptions');
+      document.getElementById('targetModalTitle').textContent = '💀 Huelga: Destruir línea';
+      options.innerHTML = '';
+      
+      gameState.players.forEach((player, playerIdx) => {
+        if (playerIdx === gameState.currentPlayer) return;
+        
+        Object.entries(player.board).forEach(([lineaId, slot]) => {
+          if (slot.protectores > 0) {
+            const btn = document.createElement('button');
+            btn.className = 'w-full bg-red-800 hover:bg-red-700 text-white p-3 rounded-xl text-left transition shadow-lg';
+            btn.innerHTML = `${player.emoji} ${player.name} - Destruir ${lineaId} (${slot.protectores}/3)`;
+            btn.onclick = () => {
+              slot.protectores = 0;
+              slot.virus = [];
+              slot.inmune = false;
+              gameState.players[gameState.currentPlayer].hand.splice(gameState.selectedCard, 1);
+              gameState.selectedCard = null;
+              modal.classList.add('hidden');
+              showToast(`💀 ¡Huelga! ${lineaId} de ${player.name} destruida`, 'success');
+              renderGame();
+              updateActionButtons();
+            };
+            options.appendChild(btn);
+          }
+        });
+      });
+      
+      if (options.children.length === 0) {
+        options.innerHTML = '<p class="text-slate-400 text-center py-4">No hay líneas para destruir</p>';
+      }
+      
+      modal.classList.remove('hidden');
+    }
+
+    function showCambioTargets() {
+      const modal = document.getElementById('targetModal');
+      const options = document.getElementById('targetOptions');
+      const player = gameState.players[gameState.currentPlayer];
+      document.getElementById('targetModalTitle').textContent = '🔀 Cambio Ruta';
+      options.innerHTML = '';
+      
+      const myLines = Object.entries(player.board).filter(([_, slot]) => slot.protectores > 0);
+      
+      if (myLines.length === 0) {
+        options.innerHTML = '<p class="text-slate-400 text-center py-4">No tienes líneas para intercambiar</p>';
+        modal.classList.remove('hidden');
+        return;
+      }
+      
+      gameState.players.forEach((targetPlayer, playerIdx) => {
+        if (playerIdx === gameState.currentPlayer) return;
+        
+        Object.entries(targetPlayer.board).forEach(([lineaId, slot]) => {
+          if (slot.protectores > 0) {
+            myLines.forEach(([myLineaId, mySlot]) => {
+              const btn = document.createElement('button');
+              btn.className = 'w-full bg-purple-700 hover:bg-purple-600 text-white p-3 rounded-xl text-left transition shadow-lg text-sm';
+              btn.innerHTML = `Tu ${myLineaId} (${mySlot.protectores}/3) ↔ ${targetPlayer.emoji} ${lineaId} (${slot.protectores}/3)`;
+              btn.onclick = () => {
+                const temp = { ...mySlot };
+                player.board[myLineaId] = { ...slot };
+                targetPlayer.board[lineaId] = temp;
+                
+                gameState.players[gameState.currentPlayer].hand.splice(gameState.selectedCard, 1);
+                gameState.selectedCard = null;
+                modal.classList.add('hidden');
+                showToast(`🔀 ¡Intercambio completado!`, 'success');
+                renderGame();
+                updateActionButtons();
+              };
+              options.appendChild(btn);
+            });
+          }
+        });
+      });
+      
+      modal.classList.remove('hidden');
+    }
+
+    function showStealTargets() {
+      const modal = document.getElementById('targetModal');
+      const options = document.getElementById('targetOptions');
+      document.getElementById('targetModalTitle').textContent = '🎭 Guante: Robar cartas';
+      options.innerHTML = '';
+      
+      gameState.players.forEach((player, playerIdx) => {
+        if (playerIdx === gameState.currentPlayer || player.hand.length === 0) return;
+        
+        const btn = document.createElement('button');
+        btn.className = 'w-full bg-indigo-700 hover:bg-indigo-600 text-white p-3 rounded-xl text-left transition shadow-lg';
+        btn.innerHTML = `Robar 3 cartas a ${player.emoji} ${player.name} (tiene ${player.hand.length})`;
+        btn.onclick = () => {
+          const stolen = Math.min(3, player.hand.length);
+          for (let i = 0; i < stolen; i++) {
+            const randomIdx = Math.floor(Math.random() * player.hand.length);
+            gameState.players[gameState.currentPlayer].hand.push(player.hand.splice(randomIdx, 1)[0]);
+          }
+          
+          gameState.players[gameState.currentPlayer].hand.splice(gameState.selectedCard, 1);
+          gameState.selectedCard = null;
+          modal.classList.add('hidden');
+          showToast(`🎭 ¡${stolen} cartas robadas a ${player.name}!`, 'success');
+          renderGame();
+          updateActionButtons();
+        };
+        options.appendChild(btn);
+      });
+      
+      if (options.children.length === 0) {
+        options.innerHTML = '<p class="text-slate-400 text-center py-4">No hay rivales con cartas</p>';
+      }
+      
+      modal.classList.remove('hidden');
+    }
+
+    function showRecycleOptions() {
+      const modal = document.getElementById('targetModal');
+      const options = document.getElementById('targetOptions');
+      document.getElementById('targetModalTitle').textContent = '♻️ Reciclaje: Recuperar cartas';
+      options.innerHTML = '';
+      
+      if (gameState.discardPile.length === 0) {
+        options.innerHTML = '<p class="text-slate-400 text-center py-4">No hay cartas en el descarte</p>';
+        modal.classList.remove('hidden');
+        return;
+      }
+      
+      const recentCards = gameState.discardPile.slice(-10);
+      let selected = [];
+      
+      recentCards.forEach((card, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'w-full bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-xl text-left transition';
+        btn.innerHTML = `
+          <span id="recycle-check-${idx}">☐</span> ${card.name} (${card.type})
+        `;
+        btn.onclick = () => {
+          const checkIdx = selected.indexOf(card.uid);
+          if (checkIdx >= 0) {
+            selected.splice(checkIdx, 1);
+            document.getElementById(`recycle-check-${idx}`).textContent = '☐';
+          } else if (selected.length < 3) {
+            selected.push(card.uid);
+            document.getElementById(`recycle-check-${idx}`).textContent = '☑';
+          } else {
+            showToast('Máximo 3 cartas', 'warning');
+          }
+        };
+        options.appendChild(btn);
+      });
+      
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'w-full bg-green-700 hover:bg-green-600 text-white p-3 rounded-xl font-bold transition mt-2';
+      confirmBtn.textContent = '✓ Recuperar seleccionadas';
+      confirmBtn.onclick = () => {
+        selected.forEach(uid => {
+          const cardIdx = gameState.discardPile.findIndex(c => c.uid === uid);
+          if (cardIdx >= 0) {
+            gameState.players[gameState.currentPlayer].hand.push(gameState.discardPile.splice(cardIdx, 1)[0]);
+          }
+        });
+        
+        gameState.players[gameState.currentPlayer].hand.splice(gameState.selectedCard, 1);
+        gameState.selectedCard = null;
+        modal.classList.add('hidden');
+        showToast(`♻️ ${selected.length} cartas recuperadas!`, 'success');
+        renderGame();
+        updateActionButtons();
+      };
+      options.appendChild(confirmBtn);
+      
+      modal.classList.remove('hidden');
+    }
+
+    function discardSelectedCard() {
+      if (gameState.selectedCard === null) return;
+      
+      const player = gameState.players[gameState.currentPlayer];
+      const card = player.hand.splice(gameState.selectedCard, 1)[0];
+      gameState.discardPile.push(card);
+      gameState.selectedCard = null;
+      
+      const discardPile = document.getElementById('discardPile');
+      discardPile.className = `card ${getCardClass(card)} flex flex-col items-center justify-center p-2`;
+      discardPile.innerHTML = getCardContent(card);
+      
+      showToast('Carta descartada', 'info');
+      renderGame();
+      updateActionButtons();
+    }
+
+    function cancelSelection() {
+      gameState.selectedCard = null;
+      renderPlayerHand();
+      updateActionButtons();
+    }
+
+    function checkVictory() {
+      const player = gameState.players[gameState.currentPlayer];
+      const completedLines = Object.values(player.board).filter(
+        slot => slot.protectores >= 3 && slot.virus.length === 0
+      ).length;
+      
+      if (completedLines >= 4) {
+        document.getElementById('winnerText').textContent = `${player.emoji} ${player.name.toUpperCase()} HA GANADO!`;
+        document.getElementById('victoryModal').classList.remove('hidden');
+        return true;
+      }
+      return false;
+    }
+
+    function endTurnManually() {
+      if (!gameState.hasDrawn) {
+        showToast('Debes robar una carta antes de terminar', 'warning');
+        return;
+      }
+
+      if (gameState.selectedCard !== null) {
+        showToast('Juega o descarta la carta seleccionada', 'warning');
+        return;
+      }
+      
+      gameState.hasDrawn = false;
+      
+      let nextPlayer = (gameState.currentPlayer + 1) % gameState.playerCount;
+      
+      if (gameState.skipNextPlayer) {
+        const skippedPlayer = gameState.players[nextPlayer];
+        showToast(`${skippedPlayer.name} pierde el turno`, 'warning');
+        nextPlayer = (nextPlayer + 1) % gameState.playerCount;
+        gameState.skipNextPlayer = false;
+      }
+      
+      gameState.currentPlayer = nextPlayer;
+      showPassDevice();
+    }
+
+    function restartGame() {
+      document.getElementById('victoryModal').classList.add('hidden');
+      document.getElementById('gameScreen').classList.add('hidden');
+      document.getElementById('passDeviceScreen').classList.add('hidden');
+      document.getElementById('startScreen').classList.remove('hidden');
+    }
+
+    // Inicialización del SDK
+    function onConfigChange(newConfig) {
+      const gameTitle = document.getElementById('gameTitle');
+      if (gameTitle) {
+        gameTitle.textContent = newConfig.game_title || defaultConfig.game_title;
+      }
+    }
+
+    function mapToCapabilities(cfg) {
+      return {
+        recolorables: [],
+        borderables: [],
+        fontEditable: undefined,
+        fontSizeable: undefined
+      };
+    }
+
+    function mapToEditPanelValues(cfg) {
+      return new Map([
+        ["game_title", cfg.game_title || defaultConfig.game_title]
+      ]);
+    }
+
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities,
+        mapToEditPanelValues
+      });
+      config = window.elementSdk.config || defaultConfig;
+    }
+
+    onConfigChange(config);
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c2118bb25d90376',t:'MTc2OTEwNjM1NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
