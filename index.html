@@ -446,20 +446,26 @@
       // Inicializar jugadores SIN LÍNEAS (como el juego real)
       gameState.players = [];
       for (let i = 0; i < gameState.playerCount; i++) {
-        const board = {};
-        LINEAS.forEach(linea => {
-          board[linea.id] = { protectores: 0, virus: [], inmune: false };
-        });
-        
-        gameState.players.push({
-          id: i,
-          name: `Jugador ${i + 1}`,
-          color: PLAYER_COLORS[i],
-          emoji: PLAYER_EMOJIS[i],
-          hand: [],
-          board: board
-        });
-      }
+     // Pedir nombre personalizado
+     let playerName = prompt(`Introduce el nombre del Jugador ${i + 1}:`, `Jugador ${i + 1}`);
+     if (!playerName || playerName.trim() === '') {
+      playerName = `Jugador ${i + 1}`;
+     }
+  
+     const board = {};
+     LINEAS.forEach(linea => {
+      board[linea.id] = { protectores: 0, virus: [], inmune: false };
+     });
+  
+     gameState.players.push({
+       id: i,
+       name: playerName.trim(),  // ← Usa el nombre personalizado
+       color: PLAYER_COLORS[i],
+       emoji: PLAYER_EMOJIS[i],
+       hand: [],
+       board: board
+     });
+   }
       
       // Crear mazo
       gameState.deck = createDeck();
